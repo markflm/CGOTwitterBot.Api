@@ -4,3 +4,5 @@ mysql shit
 	through a stored proc. pulling back much fewer rows than pointcheck, so can probably
 	do a read before inserting to make sure player-team composite doesn't already exist
 	without hurting performance.
+
+	connection "pool"; necessary? helpful? tbd
