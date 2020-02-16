@@ -6,14 +6,16 @@ const bodyPaser = require('body-parser');
 const dbConn = require('./DataCreds.js');
 const teamRoutes = require('./API/Routes/teams.js')
 
-dbConn.connect((err) => {
+
+
+/* dbConn.connect((err) => {
     if(err){
         console.log('db error')
     }
     else{
         console.log('db success')
     }
-})
+}) */
 
 app.use(morgan('dev'));
 
