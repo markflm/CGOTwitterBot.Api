@@ -1,0 +1,6 @@
+mysql shit
+
+	can't figure out how to pass an array and insert it as multiple rows
+	through a stored proc. pulling back much fewer rows than pointcheck, so can probably
+	do a read before inserting to make sure player-team composite doesn't already exist
+	without hurting performance.

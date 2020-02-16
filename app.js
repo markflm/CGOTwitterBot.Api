@@ -5,7 +5,7 @@ const app = express(); //spins up express application
 const morgan = require('morgan'); //logging package
 const bodyPaser = require('body-parser');
 const dbConn = require('./DataCreds.js');
-const dataAccess = require('./DataAccess.js');
+
 
 dbConn.connect((err) => {
     if(err){
@@ -45,15 +45,41 @@ app.post('/:user/addteams',(req, res, next) => {
     var userName = req.params.user
     var teamsToAdd = req.body.teamsToAdd;
 
+    var teamList = []; //teams already existing for user in database
+
     //logic to check if the teams to be added are already in the database for this user
+dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, result, fields) => {
+    if (err) throw err;
+        
+    teamList = result.map(jsonifyTeams)
 
+    console.log(teamList)
+    var teamsToInsert = teamsToAdd.filter(x => !teamList.includes(x))
+    console.log(teamsToInsert)
+ 
     //logic that creates an INSERT statement that adds all these teams to the database
-
+    console.log(teamsToAdd)
     res.status(201).json({
         message:"teams added successfully for " + userName,
-        teams: teamsToAdd
+        teams: teamsToInsert
+})
+//need a loop to add onto the insert query
+dbConn.query('INSERT INTO userteams (UserName, Team) VALUES (' +)
+
     })
 
+})
+
+//resposne to the "-[team]" command
+app.post('/:user/removeteams',(req, res, next) => {
+    var userName = req.params.user;
+    var teamsToRemove = req.body.teamsToRemove;
+
+        //add exceptions for when team isn't in users list
+    res.status(201).json({
+        message:"Teams deleted successfully for " + userName,
+        teams: teamsToRemove
+    })
 })
 
 //for use with .map on the array of json objects returned by mysql select. should probably make this an arrow function.
