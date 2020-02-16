@@ -4,7 +4,7 @@ const app = express(); //spins up express application
 const morgan = require('morgan'); //logging package
 const bodyPaser = require('body-parser');
 const dbConn = require('./DataCreds.js');
-const teamRoutes = require('./api/Routes/teams.js')
+const teamRoutes = require('./API/Routes/teams.js')
 
 dbConn.connect((err) => {
     if(err){
