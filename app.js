@@ -99,8 +99,22 @@ dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, resul
 app.post('/user/:user/removeteams',(req, res, next) => {
     var userName = req.params.user;
     var teamsToRemove = req.body.teamsToRemove;
+console.log(teamsToRemove)
+if (typeof teamsToRemove === 'undefined'){
 
+    dbConn.query("DELETE FROM userteams where UserName = ?", userName, (err, result, fields) => {
+        if (err) throw err;
+ 
+    })
 
+    res.status(201).json({
+        message:"Teams deleted successfully for " + userName,
+        teams: "all"
+    })
+
+//console.log("its null")
+}
+else {
 var deleteString = ""
 for(i = 0; i < teamsToRemove.length;i++){
     deleteString += "'" +teamsToRemove[i] + "',"
@@ -118,7 +132,10 @@ deleteString = deleteString.substr(0, deleteString.length - 1)
         message:"Teams deleted successfully for " + userName,
         //teams: teamsToRemove //may need to do a 'get teams' on user to determine which teams were already in db for them, then return actual teams deleted
     })
-})
+}
+}
+)
+
 
 //for use with .map on the array of json objects returned by mysql select. should probably make this an arrow function.
 function jsonifyTeams(item){

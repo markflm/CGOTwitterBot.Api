@@ -11,7 +11,7 @@ var mysql = require('mysql');
 //may need to refactor api endpoints that require multiple queries if performance gets bad
 //move datacreds to env variable in heroku
 const con = mysql.createPool({
-    connectionLimit: 10,
+    connectionLimit: 25,
     host:"us-cdbr-iron-east-04.cleardb.net",
     user:"b8de33dafd8f78",
     password: "8c3c1fd8",

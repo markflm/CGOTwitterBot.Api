@@ -6,3 +6,5 @@ mysql shit
 	without hurting performance.
 
 	connection "pool"; necessary? helpful? tbd
+
+	created google cloud database on mpcrav email. much higher storage if I can get it working
