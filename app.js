@@ -100,10 +100,11 @@ app.post('/user/:user/removeteams',(req, res, next) => {
     var userName = req?.params?.user;
     var teamsToRemove = req?.body?.teamsToRemove;
 
-    var containsWildcard = teamsToRemove.filter(x => x === "*")
+    var containsWildcard = teamsToRemove?.filter(x => x === "*")
+
     
 console.log(teamsToRemove)
-if (containsWildcard){
+if (containsWildcard?.length > 0 || (typeof teamsToRemove === 'undefined')){
     console.log("wildcard char included in teamsToRemove - attempting to delete all teams for user: " + userName);
     dbConn.query("DELETE FROM userteams where UserName = ?", userName, (err, result, fields) => {
         if (err) {
