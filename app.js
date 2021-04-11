@@ -94,22 +94,26 @@ dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, resul
 })
 
 
-//resposne to the "-[team]" command
+//response to the "-[team]" command
 //requires: one JSON object with a teamsToRemove key with value(s) in a string array
 app.post('/user/:user/removeteams',(req, res, next) => {
-    var userName = req.params.user;
-    var teamsToRemove = req.body.teamsToRemove;
-console.log(teamsToRemove)
-if (typeof teamsToRemove === 'undefined'){
+    var userName = req?.params?.user;
+    var teamsToRemove = req?.body?.teamsToRemove;
 
+    var containsWildcard = teamsToRemove.filter(x => x === "*")
+    
+console.log(teamsToRemove)
+if (containsWildcard){
+    console.log("wildcard char included in teamsToRemove - attempting to delete all teams for user: " + userName);
     dbConn.query("DELETE FROM userteams where UserName = ?", userName, (err, result, fields) => {
-        if (err) throw err;
- 
+        if (err) {
+        console.log("delete all db call threw error")
+        throw err;
+    }
     })
 
     res.status(201).json({
-        message:"Teams deleted successfully for " + userName,
-        teams: "all"
+        message:"ALL Teams deleted successfully for " + userName
     })
 
 //console.log("its null")
