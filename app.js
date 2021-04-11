@@ -5,28 +5,44 @@ const morgan = require('morgan'); //logging package
 const bodyPaser = require('body-parser');
 const dbConn = require('./DataCreds.js');
 const teamRoutes = require('./API/Routes/teams.js')
+const apiCreds = require('./API/apiKey.js')
 
 
-
-/* dbConn.connect((err) => {
-    if(err){
-        console.log('db error')
-    }
-    else{
-        console.log('db success')
-    }
-}) */
 
 app.use(morgan('dev'));
 
 app.use(bodyPaser.urlencoded({extended:false})); //extended = 'rich text'. only want basic for now.
 app.use(bodyPaser.json()); //interprets incoming JSON data; put it right into an object without having to manually parse
 
+app.use( (req, res, next) => { //valid api key before doing anything else with request
+    var requestValid = apiCreds(req.headers['apikey']);
+    var x = 1;
+    if(!requestValid){
+        res.status(401).json({
+            message:"apiKey invalid"
+        })
+        return
+    }
+    next();
+})
+
 app.use('/teams', teamRoutes) //route requests to /teams to the teams.js file
+
+app.get('/test/apikey', (req, res, next) => {
+
+})
+
 
 //response to "!teams" command, returns all teams a user is currently subscribed to
 app.get('/user/:user/getteams', (req, res, next) => {
-var userName = req.params.user
+// let requestValid = apiCreds(req.headers['apikey']);
+// if(!requestValid){
+//     res.status(401).json({
+//         message:"unauthorized request"
+//     })
+// return;
+// }
+ var userName = req.params.user
 
 dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, result, fields) => {
     if (err) throw err;
@@ -45,6 +61,8 @@ res.status(200).json({
 //response to the "+[team]" command, adds incoming teams to the database for that user if they do not already exist.
 //requires: one JSON object with a teamsToAdd key with value(s) in a string array
 app.post('/user/:user/addteams',(req, res, next) => {
+
+
     var userName = req.params.user
     var teamsToAdd = req.body.teamsToAdd;
 
@@ -99,13 +117,17 @@ dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, resul
 app.post('/user/:user/removeteams',(req, res, next) => {
     var userName = req?.params?.user;
     var teamsToRemove = req?.body?.teamsToRemove;
-
-    var containsWildcard = teamsToRemove?.filter(x => x === "*")
+if(teamsToRemove === null){
+    res.status(400).json({
+        message:"null provided as value to teamsToRemove key - invalid, requests rejected with no deletions for user: " + userName ?? "nulluser"
+    })
+    return;
+}
 
     
 console.log(teamsToRemove)
-if (containsWildcard?.length > 0 || (typeof teamsToRemove === 'undefined')){
-    console.log("wildcard char included in teamsToRemove - attempting to delete all teams for user: " + userName);
+if (typeof teamsToRemove === 'undefined'){
+    console.log("no TTR key in req body, attempting to remove all data for user: " + userName);
     dbConn.query("DELETE FROM userteams where UserName = ?", userName, (err, result, fields) => {
         if (err) {
         console.log("delete all db call threw error")
@@ -116,6 +138,7 @@ if (containsWildcard?.length > 0 || (typeof teamsToRemove === 'undefined')){
     res.status(201).json({
         message:"ALL Teams deleted successfully for " + userName
     })
+    return;
 
 //console.log("its null")
 }
