@@ -16,7 +16,7 @@ app.use(bodyPaser.json()); //interprets incoming JSON data; put it right into an
 
 app.use( (req, res, next) => { //valid api key before doing anything else with request
     var requestValid = apiCreds(req.headers['apikey']);
-    var x = 1;
+
     if(!requestValid){
         res.status(401).json({
             message:"apiKey invalid"
