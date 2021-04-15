@@ -4,8 +4,9 @@ const app = express(); //spins up express application
 const morgan = require('morgan'); //logging package
 const bodyPaser = require('body-parser');
 const dbConn = require('./DataCreds.js');
-const teamRoutes = require('./API/Routes/teams.js')
-const apiCreds = require('./API/apiKey.js')
+const teamRoutes = require('./API/Routes/teams.js');
+const apiCreds = require('./API/apiKey.js');
+const crud = require('./crud.js');
 
 
 
@@ -28,88 +29,112 @@ app.use( (req, res, next) => { //valid api key before doing anything else with r
 
 app.use('/teams', teamRoutes) //route requests to /teams to the teams.js file
 
-app.get('/test/apikey', (req, res, next) => {
-
-})
 
 
 //response to "!teams" command, returns all teams a user is currently subscribed to
 app.get('/user/:user/getteams', (req, res, next) => {
-// let requestValid = apiCreds(req.headers['apikey']);
-// if(!requestValid){
-//     res.status(401).json({
-//         message:"unauthorized request"
-//     })
-// return;
-// }
- var userName = req.params.user
 
-dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, result, fields) => {
-    if (err) throw err;
-    
-    var teamList = result.map(jsonifyTeams)
+var userName = req?.params?.user
 
-res.status(200).json({
-    message: "teams returned",
-    user: userName,
-    teams: teamList
+crud.getTeams(userName)
+.then((result) => {
+
+    let usersTeams = result
+    res.status(200).json({
+        message: "teams returned",
+        user: userName,
+        teams: usersTeams.map(jsonifyTeams)
+    })
 })
 
-}
-)})
+})
+
 
 //response to the "+[team]" command, adds incoming teams to the database for that user if they do not already exist.
-//requires: one JSON object with a teamsToAdd key with value(s) in a string array
+//requires: one JSON object with a teamsToAdd key with value(s) in a string array OR {Team:, HltvId:} object
 app.post('/user/:user/addteams',(req, res, next) => {
 
 
-    var userName = req.params.user
-    var teamsToAdd = req.body.teamsToAdd;
+    var userName = req?.params?.user
+    var teamsToAdd = req?.body?.teamsToAdd;
 
-    var teamList = []; //teams already existing for user in database
+    let teamList = teamsToAdd.map(jsonifyTeamsDetailed)
+    var teamsValidated = req?.headers['requiredvalidation'] //if header exists and is true - it's confirmed these teams are real, new and the user is not currently subscribed to them
 
-    //logic to check if the teams to be added are already in the database for this user
-dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, result, fields) => {
-    if (err) throw err;
+if(!teamsValidated){
+
+crud.getTeams(userName)
+.then((result) => {
+
+    let subbedTeams = result.map(jsonifyTeamsDetailed);
+    let subbedTeamString = result.map(jsonifyTeams);
+    let newTeams = teamList.filter(x => !subbedTeamString.includes(x.Team))
+
+    if(newTeams.length == 0){ //if user subbed to all teams already, return 406
+        res.status(406)
+        .json({confirmedMessage:"User: "+ userName +" subscribed to all provided teams already",
+               teamsConfirmedAdded:"",
+               unconfirmedMessage:"",
+               teamsUnconfirmed:""
+              }) 
+        return
+    }
+
+
+    crud.doesTeamExist(newTeams)
+    .then((result) => {
+
+        let realTeams = result.map(jsonifyTeamsDetailed);
+        let realTeamsString = result.map(jsonifyTeams);
+        let unconfirmedTeams = newTeams.filter(x => !realTeamsString.includes(x.Team))
+
+        if(realTeams.length == 0){ //if no confirmed teams, return
+            res.status(201).json({
+                confirmedMessage:"Teams that were confirmed to exist and added for " + userName,
+                teamsConfirmedAndAdded: "",
+                unconfirmedMessage:"Teams that could not be confirmed to exist",
+                teamsUnconfirmed: unconfirmedTeams
+            })
+            return
+
+        }
         
-    teamList = result.map(jsonifyTeams)
+        
+        crud.addTeams(userName, realTeams)
+            .then(_ => {
+                if(newTeams?.length > realTeams?.length ){
+                    
+                    console.log("There are teams in this Add request that could not be confirmed to exist: " + unconfirmedTeams)
+                }
+                res.status(201).json({
+                    confirmedMessage:"Teams that were confirmed to exist and added for " + userName,
+                    teamsConfirmedAndAdded: realTeams ?? "",
+                    unconfirmedMessage:'Teams that could not be confirmed to exist. Please verify this team exits on HLTV and send'
+                    + ' these teams back with request header "headervalidation": true',
+                    teamsUnconfirmed: unconfirmedTeams ?? ""
+                })
+            }
+            )
 
-    //console.log(teamList) //teams user already has in database[]
-    var teamsToInsert = teamsToAdd.filter(x => !teamList.includes(x))
- 
-    //if there are new teams to add, create an INSERT statement
- if (teamsToInsert.length > 0) {   
-
-    var insertQueryText = 'INSERT INTO userteams (UserName, Team) VALUES '
-
-    //concat insert string together
-    for(i = 0; i < teamsToInsert.length; i++){
-
-        insertQueryText += "('" + userName + "','" + teamsToInsert[i] + "'),"
-    
-    }
-
-    //remove last comma for valid sql syntax
-    insertQueryText = insertQueryText.substr(0, insertQueryText.length - 1 )
-    //console.log(insertQueryText) //final insert query string being sent
-    dbConn.query(insertQueryText, (err, result, fields) => {
-        if (err) throw err;
-        res.status(201).json({
-            message: "Teams added successfully for " + userName,
-            teamsAdded: teamsToInsert
-     })
- }) }
- else{
-     res.status(202).json({
-         message:"User " + userName + " is already tracking all of these teams",
-         teamsPresent: teamsToAdd
-         })
-    }
-
-    })
-     
-
+    })    
 })
+
+}
+else{ //only requests with newly validated teams should end up here. 
+      //If addToConfirmedTeams is called on a request containing known confirmed teams, will throw a duplicate record error.
+    
+
+    crud.addTeams(userName, teamList)
+    .then(_ => {
+        res.status(201).json({
+            message:"Teams newly confirmed and added for " + userName + ": ",
+            teamsConfirmedAndAdded: teamList
+        })
+    })
+    .then(_ =>{
+        crud.addToConfirmedTeams(teamList) //insert newly confirmed hltv team into
+    })
+}})
 
 
 //response to the "-[team]" command
@@ -117,58 +142,49 @@ dbConn.query("SELECT * FROM UserTeams WHERE UserName = ?", userName, (err, resul
 app.post('/user/:user/removeteams',(req, res, next) => {
     var userName = req?.params?.user;
     var teamsToRemove = req?.body?.teamsToRemove;
+
+
 if(teamsToRemove === null){
     res.status(400).json({
-        message:"null provided as value to teamsToRemove key - invalid, requests rejected with no deletions for user: " + userName ?? "nulluser"
+        message:"null provided as value to teamsToRemove key - invalid, request rejected with no deletions for user: " + userName ?? "nulluser"
     })
     return;
 }
 
-    
-console.log(teamsToRemove)
-if (typeof teamsToRemove === 'undefined'){
-    console.log("no TTR key in req body, attempting to remove all data for user: " + userName);
-    dbConn.query("DELETE FROM userteams where UserName = ?", userName, (err, result, fields) => {
-        if (err) {
-        console.log("delete all db call threw error")
-        throw err;
+crud.removeTeams(userName, teamsToRemove)
+.then( (result) => {
+    if(typeof teamsToRemove === 'undefined'){
+        res.status(200).json({
+            message: "User: " + userName + " has been unsubscribed from ALL of their teams",
+        })
+        return;
     }
-    })
+    let teamList = teamsToRemove.map(jsonifyTeamsDetailed)
+    res.status(200).json({
+        message: "User: " + userName + " has been unsubscribed from these teams",
+        teamsRemoved: teamList
+})
 
-    res.status(201).json({
-        message:"ALL Teams deleted successfully for " + userName
-    })
-    return;
+})
 
-//console.log("its null")
-}
-else {
-var deleteString = ""
-for(i = 0; i < teamsToRemove.length;i++){
-    deleteString += "'" +teamsToRemove[i] + "',"
-}
+})
 
-deleteString = deleteString.substr(0, deleteString.length - 1)
-
-
-    //todo: add response for when team isn't in users list
-    dbConn.query("DELETE FROM userteams WHERE team IN (" + deleteString + ") AND UserName = ?", userName, (err, result, fields) => {
-        if (err) throw err;
-        console.log(result)
-    })
-    res.status(201).json({
-        message:"Teams deleted successfully for " + userName,
-        //teams: teamsToRemove //may need to do a 'get teams' on user to determine which teams were already in db for them, then return actual teams deleted
-    })
-}
-}
-)
 
 
 //for use with .map on the array of json objects returned by mysql select. should probably make this an arrow function.
 function jsonifyTeams(item){
     var teamName = item.Team
     return teamName
+}
+
+function jsonifyTeamsDetailed(item){
+
+    team = {
+            Team: item.Team ?? item, //do this check to keep compatibility with the old 'teams passed as array of strings' method
+            HltvId: item.HltvTeamId ?? 0
+           }
+
+    return team
 }
 
 
