@@ -59,9 +59,9 @@ app.post('/user/:user/addteams',(req, res, next) => {
     var teamsToAdd = req?.body?.teamsToAdd;
 
     let teamList = teamsToAdd.map(jsonifyTeamsDetailed)
-    var teamsValidated = req?.headers['requiredvalidation'] //if header exists and is true - it's confirmed these teams are real, new and the user is not currently subscribed to them
+    var teamsValidated = req?.headers['skipvalidation'] //if header exists and is true - it's confirmed these teams are real, new and the user is not currently subscribed to them
 
-if(!teamsValidated){
+if(teamsValidated == 0){
 
 crud.getTeams(userName)
 .then((result) => {
@@ -71,7 +71,7 @@ crud.getTeams(userName)
     let newTeams = teamList.filter(x => !subbedTeamString.includes(x.Team))
 
     if(newTeams.length == 0){ //if user subbed to all teams already, return 406
-        res.status(406)
+        res.status(201)
         .json({confirmedMessage:"User: "+ userName +" subscribed to all provided teams already",
                teamsConfirmedAdded:"",
                unconfirmedMessage:"",

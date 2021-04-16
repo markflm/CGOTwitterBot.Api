@@ -6,8 +6,8 @@ const con = mysql.createPool({
     host: process.env.mySqlHost,
     user: process.env.mySqlUser,
     password: process.env.mySqlPassword,
-    database: process.env.mySqlDatabase
-
+    database: process.env.mySqlDatabase,
+    acquireTimeout: 1000000
 })
 
 module.exports = con;
