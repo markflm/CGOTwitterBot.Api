@@ -32,7 +32,7 @@ app.use('/teams', teamRoutes); //route requests to /teams to the teams.js file
 app.get('/user/:user/getteams', (req, res, next) => {
 	var userName = req?.params?.user;
 
-	crud.getTeams(userName).then(result => {
+	crud.getTeams(userName).then((result) => {
 		let usersTeams = result;
 		res.status(200).json({
 			message: 'teams returned',
@@ -52,16 +52,16 @@ app.post('/user/:user/addteams', (req, res, next) => {
 	var teamsValidated = req?.headers['skipvalidation']; //if header exists and is true - it's confirmed these teams are real, new and the user is not currently subscribed to them
 
 	if (teamsValidated == 0) {
-		crud.getTeams(userName).then(result => {
+		crud.getTeams(userName).then((result) => {
 			let subbedTeams = result.map(jsonifyTeamsDetailed);
 			let subbedTeamString = result.map(jsonifyTeams);
-			let newTeams = teamList.filter(x => !subbedTeamString.includes(x.Team));
+			subbedTeamString = subbedTeamString.map((x) => x.toUpperCase()); // make existing and incoming team names uppercase so different capitalization doesn't pass as new team
+			let newTeams = teamList.filter((x) => !subbedTeamString.includes(x.Team.toUpperCase()));
 
 			if (newTeams.length == 0) {
-				//if user subbed to all teams already, return 406
+				//if user subbed to all teams already
 				res.status(201).json({
-					confirmedMessage:
-						'User: ' + userName + ' subscribed to all provided teams already',
+					confirmedMessage: 'User: ' + userName + ' subscribed to all provided teams already',
 					teamsConfirmedAdded: '',
 					unconfirmedMessage: '',
 					teamsUnconfirmed: '',
@@ -69,18 +69,16 @@ app.post('/user/:user/addteams', (req, res, next) => {
 				return;
 			}
 
-			crud.doesTeamExist(newTeams).then(result => {
+			crud.doesTeamExist(newTeams).then((result) => {
 				let realTeams = result.map(jsonifyTeamsDetailed);
 				let realTeamsString = result.map(jsonifyTeams);
-				let unconfirmedTeams = newTeams.filter(
-					x => !realTeamsString.includes(x.Team)
-				);
+				realTeamsString = realTeamsString.map((x) => x.toUpperCase());
+				let unconfirmedTeams = newTeams.filter((x) => !realTeamsString.includes(x.Team.toUpperCase()));
 
 				if (realTeams.length == 0) {
 					//if no confirmed teams, return
 					res.status(201).json({
-						confirmedMessage:
-							'Teams that were confirmed to exist and added for ' + userName,
+						confirmedMessage: 'Teams that were confirmed to exist and added for ' + userName,
 						teamsConfirmedAndAdded: '',
 						unconfirmedMessage: 'Teams that could not be confirmed to exist',
 						teamsUnconfirmed: unconfirmedTeams,
@@ -88,23 +86,32 @@ app.post('/user/:user/addteams', (req, res, next) => {
 					return;
 				}
 
-				crud.addTeams(userName, realTeams).then(_ => {
-					if (newTeams?.length > realTeams?.length) {
-						console.log(
-							'There are teams in this Add request that could not be confirmed to exist: ' +
-								unconfirmedTeams
-						);
-					}
-					res.status(201).json({
-						confirmedMessage:
-							'Teams that were confirmed to exist and added for ' + userName,
-						teamsConfirmedAndAdded: realTeams ?? '',
-						unconfirmedMessage:
-							'Teams that could not be confirmed to exist. Please verify this team exits on HLTV and send' +
-							' these teams back with request header "skipvalidation": 1',
-						teamsUnconfirmed: unconfirmedTeams ?? '',
+				crud
+					.addTeams(userName, realTeams)
+					.then((_) => {
+						if (newTeams?.length > realTeams?.length) {
+							console.log(
+								'There are teams in this Add request that could not be confirmed to exist: ' + unconfirmedTeams
+							);
+						}
+						res.status(201).json({
+							confirmedMessage: 'Teams that were confirmed to exist and added for ' + userName,
+							teamsConfirmedAndAdded: realTeams ?? '',
+							unconfirmedMessage:
+								'Teams that could not be confirmed to exist. Please verify this team exits on HLTV and send' +
+								' these teams back with request header "skipvalidation": 1',
+							teamsUnconfirmed: unconfirmedTeams ?? '',
+						});
+					})
+					.catch((result) => {
+						let errorMsg =
+							result.code == 'ER_DUP_Enty'
+								? `Known database error adding teams, user is already subscribed to this team: ${result}`
+								: result;
+						res.status(500).json({
+							message: errorMsg,
+						});
 					});
-				});
 			});
 		});
 	} else {
@@ -113,13 +120,13 @@ app.post('/user/:user/addteams', (req, res, next) => {
 
 		crud
 			.addTeams(userName, teamList)
-			.then(_ => {
+			.then((_) => {
 				res.status(201).json({
 					message: 'Teams newly confirmed and added for ' + userName + ': ',
 					teamsConfirmedAndAdded: teamList,
 				});
 			})
-			.then(_ => {
+			.then((_) => {
 				crud.addToConfirmedTeams(teamList); //insert newly confirmed hltv team into
 			});
 	}
@@ -140,13 +147,10 @@ app.post('/user/:user/removeteams', (req, res, next) => {
 		return;
 	}
 
-	crud.removeTeams(userName, teamsToRemove).then(result => {
+	crud.removeTeams(userName, teamsToRemove).then((result) => {
 		if (typeof teamsToRemove === 'undefined') {
 			res.status(200).json({
-				message:
-					'User: ' +
-					userName +
-					' has been unsubscribed from ALL of their teams',
+				message: 'User: ' + userName + ' has been unsubscribed from ALL of their teams',
 			});
 			return;
 		}

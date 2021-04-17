@@ -2,8 +2,9 @@ const dbConn = require('./DataCreds.js');
 
 const getTeams = userName => {
 	return new Promise((resolve, reject) => {
-		let queryText =
-			'SELECT ut.Team, e.HltvTeamId FROM userteams ut LEFT JOIN existingteams e on ut.Team = e.Team WHERE UserName = ?';
+		let queryText = //COALESCE will display team name from the existingteams table (more likely to have correct capitalization), but no if record exists in
+			//existingteams it will display the userteams record. Shouldn't happen - only confirmed teams should ever exist in the db, but just in case.
+			'SELECT COALESCE(e.Team, ut.Team) Team, e.HltvTeamId FROM userteams ut LEFT JOIN existingteams e on ut.Team = e.Team WHERE UserName = ?';
 		dbConn.query(queryText, userName, (err, result) => {
 			if (err) {
 				console.log('Error in db getTeams function: ', err);
