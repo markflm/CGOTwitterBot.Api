@@ -1,6 +1,6 @@
 const dbConn = require('./DataCreds.js');
 
-const getTeams = userName => {
+const getTeams = (userName) => {
 	return new Promise((resolve, reject) => {
 		let queryText = //COALESCE will display team name from the existingteams table (more likely to have correct capitalization), but no if record exists in
 			//existingteams it will display the userteams record. Shouldn't happen - only confirmed teams should ever exist in the db, but just in case.
@@ -53,44 +53,35 @@ const removeTeams = (userName, teamsToRemove) => {
 				deleteString += "'" + teamsToRemove[i] + "',";
 			}
 			deleteString = deleteString.substr(0, deleteString.length - 1);
-			dbConn.query(
-				queryText + 'team IN (' + deleteString + ') AND UserName = ?',
-				userName,
-				(err, result) => {
-					if (err) {
-						console.log('Remove teams db call threw error');
-						return reject(err);
-					}
-					resolve(result);
+			dbConn.query(queryText + 'team IN (' + deleteString + ') AND UserName = ?', userName, (err, result) => {
+				if (err) {
+					console.log('Remove teams db call threw error');
+					return reject(err);
 				}
-			);
+				resolve(result);
+			});
 		}
 	});
 };
 
-const doesTeamExist = teams => {
+const doesTeamExist = (teams) => {
 	return new Promise((resolve, reject) => {
-		let teamNames = teams.map(item => item.Team);
-		dbConn.query(
-			'SELECT * FROM existingteams WHERE Team IN (?)',
-			[teamNames],
-			(err, result) => {
-				if (err) {
-					console.log('Error in db doesTeamExist function: ', err);
-					return reject(err);
-				}
-				resolve(result);
+		let teamNames = teams.map((item) => item.Team);
+		dbConn.query('SELECT * FROM existingteams WHERE Team IN (?)', [teamNames], (err, result) => {
+			if (err) {
+				console.log('Error in db doesTeamExist function: ', err);
+				return reject(err);
 			}
-		);
+			resolve(result);
+		});
 	});
 };
 
-const addToConfirmedTeams = teams => {
+const addToConfirmedTeams = (teams) => {
 	return new Promise((resolve, reject) => {
 		let queryText = 'INSERT INTO existingteams (Team, HltvTeamId) VALUES ';
 		for (i = 0; i < teams.length; i++) {
-			queryText +=
-				"('" + teams[i].Team + "','" + (teams[i].HltvId ?? null) + "'),";
+			queryText += "('" + teams[i].Team + "','" + (teams[i].HltvId ?? null) + "'),";
 		}
 		queryText = queryText.substr(0, queryText.length - 1);
 		dbConn.query(queryText, (err, result) => {
@@ -103,8 +94,23 @@ const addToConfirmedTeams = teams => {
 	});
 };
 
+const getUsersForTeamMatch = (team) => {
+	return new Promise((resolve, reject) => {
+		let queryText = 'SELECT DISTINCT UserName from userteams where Team = ?';
+
+		dbConn.query(queryText, team, (err, result) => {
+			if (err) {
+				console.log(`Error in db getUsersForTeamMatch function: ${err}`);
+				return reject(err);
+			}
+			resolve(result);
+		});
+	});
+};
+
 exports.getTeams = getTeams;
 exports.addTeams = addTeams;
 exports.removeTeams = removeTeams;
 exports.doesTeamExist = doesTeamExist;
 exports.addToConfirmedTeams = addToConfirmedTeams;
+exports.getUsersForTeamMatch = getUsersForTeamMatch;

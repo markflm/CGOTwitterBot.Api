@@ -128,6 +128,15 @@ app.post('/user/:user/addteams', (req, res, next) => {
 			})
 			.then((_) => {
 				crud.addToConfirmedTeams(teamList); //insert newly confirmed hltv team into
+			})
+			.catch((result) => {
+				let errorMsg =
+					result.code == 'ER_DUP_Enty'
+						? `Known database error adding new team(s) to existingteams tbl: ${result}`
+						: result;
+				res.status(500).json({
+					message: errorMsg,
+				});
 			});
 	}
 });
